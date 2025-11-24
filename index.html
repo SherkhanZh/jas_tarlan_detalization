@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="kk">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Card Details Lookup</title>
+  <style>
+    :root {
+      --main-color: #FBE338;
+      --text-color: #000000;
+    }
+    body {
+      font-family: Arial, sans-serif;
+      background: var(--main-color);
+      color: var(--text-color);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 40px;
+      margin: 0;
+    }
+    .card {
+      background: white;
+      padding: 20px;
+      border-radius: 10px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      width: 100%;
+      max-width: 600px;
+      box-sizing: border-box;
+    }
+    h2 {
+      margin-top: 0;
+      text-align: center;
+      color: var(--text-color);
+    }
+    .lang-switch {
+      display: flex;
+      justify-content: flex-end;
+      margin-bottom: 10px;
+      gap: 8px;
+    }
+    .lang-btn {
+      padding: 6px 10px;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+      background: #fff;
+      cursor: pointer;
+      font-size: 14px;
+      color: var(--text-color);
+    }
+    .lang-btn.active {
+      background: var(--main-color);
+      border-color: var(--main-color);
+      font-weight: bold;
+    }
+    input, button {
+      padding: 10px;
+      margin: 5px 0;
+      width: 100%;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+      font-size: 16px;
+      box-sizing: border-box;
+      color: var(--text-color);
+    }
+    button {
+      background: var(--main-color);
+      color: var(--text-color);
+      cursor: pointer;
+      font-weight: 600;
+      border: none;
+    }
+    button:hover {
+      opacity: 0.9;
+    }
+    label {
+      font-size: 14px;
+      display: block;
+      margin-top: 8px;
+      color: var(--text-color);
+    }
+    .balance {
+      margin-top: 10px;
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--text-color);
+    }
+    .balance span {
+      font-weight: 700;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+    }
+    th, td {
+      border: 1px solid #ddd;
+      padding: 8px;
+      text-align: center;
+      font-size: 14px;
+      color: var(--text-color);
+    }
+    th {
+      background: var(--main-color);
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="lang-switch">
+      <button class="lang-btn active" id="btnKz" onclick="setLanguage('kz')">Қаз</button>
+      <button class="lang-btn" id="btnRu" onclick="setLanguage('ru')">Рус</button>
+    </div>
+
+    <h2 id="titleText">Карта деректерін қарау</h2>
+
+    <input type="text" id="cardNumber" placeholder="Картаның нөмірін енгізіңіз" />
+
+    <label id="labelFrom" for="fromDate">Күні (бастап):</label>
+    <input type="date" id="fromDate" onkeydown="return false" />
+
+    <label id="labelTo" for="toDate">Күні (дейін):</label>
+    <input type="date" id="toDate" onkeydown="return false" />
+
+    <button id="btnGetDetails" onclick="fetchData()">Деректерді алу</button>
+
+    <div class="balance">
+      <span id="balanceLabel">Баланc:</span>
+      <span id="balanceValue">—</span>
+    </div>
+
+    <table id="resultsTable" style="display:none;">
+      <thead>
+        <tr>
+          <th id="thPhone">Телефон</th>
+          <th id="thCallTime">Қоңырау уақыты</th>
+          <th id="thDuration">Ұзақтығы (с)</th>
+          <th id="thCost">Құны</th>
+        </tr>
+      </thead>
+      <tbody id="resultsBody"></tbody>
+    </table>
+  </div>
+
+  <script>
+    let currentLang = 'kz';
+
+    const translations = {
+      kz: {
+        title: 'Жас Тарлан картасы деректерін қарау',
+        cardPlaceholder: 'Картаның нөмірін енгізіңіз',
+        fromDate: 'Күні (бастап):',
+        toDate: 'Күні (дейін):',
+        button: 'Деректерді алу',
+        balanceLabel: 'Баланc:',
+        noRecords: 'Жазбалар табылмады',
+        phone: 'Телефон',
+        callTime: 'Қоңырау уақыты',
+        duration: 'Ұзақтығы (с)',
+        cost: 'Құны',
+        fillAllFields: 'Барлық өрістерді толтырыңыз',
+        errorGeneric: 'Деректерді алу кезінде қате пайда болды.'
+      },
+      ru: {
+        title: 'Просмотр данных по карте Жас Тарлан',
+        cardPlaceholder: 'Введите номер карты',
+        fromDate: 'Дата (с):',
+        toDate: 'Дата (по):',
+        button: 'Получить данные',
+        balanceLabel: 'Баланс:',
+        noRecords: 'Записей не найдено',
+        phone: 'Телефон',
+        callTime: 'Время звонка',
+        duration: 'Длительность (с)',
+        cost: 'Стоимость',
+        fillAllFields: 'Заполните все поля',
+        errorGeneric: 'Произошла ошибка при получении данных.'
+      }
+    };
+
+    function setLanguage(lang) {
+      currentLang = lang;
+      const t = translations[lang];
+      document.documentElement.lang = (lang === 'kz') ? 'kk' : 'ru';
+
+      document.getElementById('titleText').textContent = t.title;
+      document.getElementById('cardNumber').placeholder = t.cardPlaceholder;
+      document.getElementById('labelFrom').textContent = t.fromDate;
+      document.getElementById('labelTo').textContent = t.toDate;
+      document.getElementById('btnGetDetails').textContent = t.button;
+      document.getElementById('balanceLabel').textContent = t.balanceLabel;
+      document.getElementById('thPhone').textContent = t.phone;
+      document.getElementById('thCallTime').textContent = t.callTime;
+      document.getElementById('thDuration').textContent = t.duration;
+      document.getElementById('thCost').textContent = t.cost;
+
+      document.getElementById('btnKz').classList.toggle('active', lang === 'kz');
+      document.getElementById('btnRu').classList.toggle('active', lang === 'ru');
+    }
+
+    function setDefaultDates() {
+      const fromInput = document.getElementById('fromDate');
+      const toInput = document.getElementById('toDate');
+
+      const today = new Date();
+      const sevenAgo = new Date();
+      sevenAgo.setDate(today.getDate() - 7);
+
+      const formatDate = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+      toInput.value = formatDate(today);
+      fromInput.value = formatDate(sevenAgo);
+    }
+
+    async function fetchData() {
+      const cardNumber = document.getElementById('cardNumber').value.trim();
+      const fromDate = document.getElementById('fromDate').value;
+      const toDate = document.getElementById('toDate').value;
+      const balanceSpan = document.getElementById('balanceValue');
+      const t = translations[currentLang];
+
+      if (!cardNumber || !fromDate || !toDate) {
+        alert(t.fillAllFields);
+        return;
+      }
+
+      const btn = document.getElementById('btnGetDetails');
+      btn.textContent = currentLang === 'kz' ? 'Жүктелуде...' : 'Загрузка...';
+      btn.disabled = true;
+
+      const detailsUrl = `https://www.lun.kz/api/card/details?number=${cardNumber}&date_from=${fromDate}&date_to=${toDate}&page=1`;
+      const balanceUrl = `https://www.lun.kz/api/card/balance?number=${cardNumber}`;
+
+      try {
+        const [detailsRes, balanceRes] = await Promise.all([
+          fetch(detailsUrl),
+          fetch(balanceUrl)
+        ]);
+
+        const detailsJson = await detailsRes.json();
+        const balanceJson = await balanceRes.json();
+
+        balanceSpan.textContent = balanceJson.balance ?? '0.00';
+
+        const data = detailsJson.data || [];
+        const tbody = document.getElementById('resultsBody');
+        const table = document.getElementById('resultsTable');
+        tbody.innerHTML = '';
+
+        if (data.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="4">${t.noRecords}</td></tr>`;
+          table.style.display = 'table';
+        } else {
+          data.forEach(item => {
+            const row = document.createElement('tr');
+            row.innerHTML = `
+              <td>${item.phone}</td>
+              <td>${item.call_time}</td>
+              <td>${item.duration}</td>
+              <td>${item.cost}</td>
+            `;
+            tbody.appendChild(row);
+          });
+          table.style.display = 'table';
+        }
+      } catch (error) {
+        alert(t.errorGeneric);
+        console.error(error);
+      } finally {
+        btn.textContent = translations[currentLang].button;
+        btn.disabled = false;
+      }
+    }
+
+    setLanguage('kz');
+    setDefaultDates();
+  </script>
+</body>
+</html>
+
