@@ -63,6 +63,9 @@
       box-sizing: border-box;
       color: var(--text-color);
     }
+    input[type="password"] {
+      letter-spacing: 2px;
+    }
     button {
       background: var(--main-color);
       color: var(--text-color);
@@ -115,6 +118,7 @@
     <h2 id="titleText">Карта деректерін қарау</h2>
 
     <input type="text" id="cardNumber" placeholder="Картаның нөмірін енгізіңіз" />
+    <input type="password" id="pin" placeholder="PIN код" maxlength="6" />
 
     <label id="labelFrom" for="fromDate">Күні (бастап):</label>
     <input type="date" id="fromDate" onkeydown="return false" />
@@ -147,8 +151,9 @@
 
     const translations = {
       kz: {
-        title: 'Жас Тарлан картасы деректерін қарау',
+        title: 'Карта деректерін қарау',
         cardPlaceholder: 'Картаның нөмірін енгізіңіз',
+        pinPlaceholder: 'PIN код',
         fromDate: 'Күні (бастап):',
         toDate: 'Күні (дейін):',
         button: 'Деректерді алу',
@@ -162,8 +167,9 @@
         errorGeneric: 'Деректерді алу кезінде қате пайда болды.'
       },
       ru: {
-        title: 'Просмотр данных по карте Жас Тарлан',
+        title: 'Просмотр данных по карте',
         cardPlaceholder: 'Введите номер карты',
+        pinPlaceholder: 'PIN код',
         fromDate: 'Дата (с):',
         toDate: 'Дата (по):',
         button: 'Получить данные',
@@ -185,6 +191,7 @@
 
       document.getElementById('titleText').textContent = t.title;
       document.getElementById('cardNumber').placeholder = t.cardPlaceholder;
+      document.getElementById('pin').placeholder = t.pinPlaceholder;
       document.getElementById('labelFrom').textContent = t.fromDate;
       document.getElementById('labelTo').textContent = t.toDate;
       document.getElementById('btnGetDetails').textContent = t.button;
@@ -214,12 +221,13 @@
 
     async function fetchData() {
       const cardNumber = document.getElementById('cardNumber').value.trim();
+      const pin = document.getElementById('pin').value.trim();
       const fromDate = document.getElementById('fromDate').value;
       const toDate = document.getElementById('toDate').value;
       const balanceSpan = document.getElementById('balanceValue');
       const t = translations[currentLang];
 
-      if (!cardNumber || !fromDate || !toDate) {
+      if (!cardNumber || !fromDate || !toDate || !pin) {
         alert(t.fillAllFields);
         return;
       }
@@ -228,7 +236,7 @@
       btn.textContent = currentLang === 'kz' ? 'Жүктелуде...' : 'Загрузка...';
       btn.disabled = true;
 
-      const detailsUrl = `https://www.lun.kz/api/card/details?number=${cardNumber}&date_from=${fromDate}&date_to=${toDate}&page=1`;
+      const detailsUrl = `https://www.lun.kz/api/card/details?number=${cardNumber}&date_from=${fromDate}&date_to=${toDate}&pin=${pin}&page=1`;
       const balanceUrl = `https://www.lun.kz/api/card/balance?number=${cardNumber}`;
 
       try {
@@ -277,4 +285,3 @@
   </script>
 </body>
 </html>
-
