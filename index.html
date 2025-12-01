@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Жас Тарлан</title>
+  <title>Card Details Lookup</title>
   <style>
     :root {
       --main-color: #FBE338;
@@ -106,6 +106,9 @@
     th {
       background: var(--main-color);
     }
+    .hidden {
+      display: none;
+    }
   </style>
 </head>
 <body>
@@ -120,11 +123,13 @@
     <input type="text" id="cardNumber" placeholder="Картаның нөмірін енгізіңіз" />
     <input type="password" id="pin" placeholder="PIN код" maxlength="10" />
 
-    <label id="labelFrom" for="fromDate">Күні (бастап):</label>
-    <input type="date" id="fromDate" onkeydown="return false" />
-
-    <label id="labelTo" for="toDate">Күні (дейін):</label>
-    <input type="date" id="toDate" onkeydown="return false" />
+    <!-- Date section (hidden until PIN is entered) -->
+    <div id="dateSection" class="hidden">
+      <label id="labelFrom" for="fromDate">Күні (бастап):</label>
+      <input type="date" id="fromDate" onkeydown="return false" />
+      <label id="labelTo" for="toDate">Күні (дейін):</label>
+      <input type="date" id="toDate" onkeydown="return false" />
+    </div>
 
     <button id="btnGetDetails" onclick="fetchData()">Деректерді алу</button>
 
@@ -133,7 +138,7 @@
       <span id="balanceValue">—</span>
     </div>
 
-    <table id="resultsTable" style="display:none;">
+    <table id="resultsTable" class="hidden">
       <thead>
         <tr>
           <th id="thPhone">Телефон</th>
@@ -151,7 +156,7 @@
 
     const translations = {
       kz: {
-        title: 'Жас Тарлан картасының деректерін қарау',
+        title: 'Бастау картасының деректерін қарау',
         cardPlaceholder: 'Картаның нөмірін енгізіңіз',
         pinPlaceholder: 'PIN код',
         fromDate: 'Күні (бастап):',
@@ -163,11 +168,13 @@
         callTime: 'Қоңырау уақыты',
         duration: 'Ұзақтығы (с)',
         cost: 'Құны',
-        fillAllFields: 'Барлық өрістерді толтырыңыз',
-        errorGeneric: 'Деректерді алу кезінде қате пайда болды.'
+        enterCard: 'Карта нөмірін енгізіңіз',
+        fillDates: 'Күндерді таңдаңыз',
+        errorGeneric: 'Деректерді алу кезінде қате пайда болды.',
+        loading: 'Жүктелуде...'
       },
       ru: {
-        title: 'Просмотр данных по карте Жас Тарлан',
+        title: 'Просмотр данных по карте Бастау',
         cardPlaceholder: 'Введите номер карты',
         pinPlaceholder: 'PIN код',
         fromDate: 'Дата (с):',
@@ -179,8 +186,10 @@
         callTime: 'Время звонка',
         duration: 'Длительность (с)',
         cost: 'Стоимость',
-        fillAllFields: 'Заполните все поля',
-        errorGeneric: 'Произошла ошибка при получении данных.'
+        enterCard: 'Введите номер карты',
+        fillDates: 'Выберите даты',
+        errorGeneric: 'Произошла ошибка при получении данных.',
+        loading: 'Загрузка...'
       }
     };
 
@@ -213,10 +222,11 @@
       const sevenAgo = new Date();
       sevenAgo.setDate(today.getDate() - 7);
 
-      const formatDate = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      const formatDate = d =>
+        `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
-      toInput.value = formatDate(today);
-      fromInput.value = formatDate(sevenAgo);
+      if (!toInput.value) toInput.value = formatDate(today);
+      if (!fromInput.value) fromInput.value = formatDate(sevenAgo);
     }
 
     async function fetchData() {
@@ -225,63 +235,109 @@
       const fromDate = document.getElementById('fromDate').value;
       const toDate = document.getElementById('toDate').value;
       const balanceSpan = document.getElementById('balanceValue');
+      const tbody = document.getElementById('resultsBody');
+      const table = document.getElementById('resultsTable');
       const t = translations[currentLang];
 
-      if (!cardNumber || !fromDate || !toDate || !pin) {
-        alert(t.fillAllFields);
+      if (!cardNumber) {
+        alert(t.enterCard);
         return;
       }
 
       const btn = document.getElementById('btnGetDetails');
-      btn.textContent = currentLang === 'kz' ? 'Жүктелуде...' : 'Загрузка...';
+      const originalBtnText = t.button;
+      btn.textContent = t.loading;
       btn.disabled = true;
 
-      const detailsUrl = `https://www.lun.kz/api/card/details?number=${cardNumber}&date_from=${fromDate}&date_to=${toDate}&pin=${pin}&page=1`;
-      const balanceUrl = `https://www.lun.kz/api/card/balance?number=${cardNumber}`;
-
       try {
-        const [detailsRes, balanceRes] = await Promise.all([
-          fetch(detailsUrl),
-          fetch(balanceUrl)
-        ]);
+        // Always fetch balance
+        const balanceUrl = `https://www.lun.kz/api/card/balance?number=${cardNumber}`;
 
-        const detailsJson = await detailsRes.json();
-        const balanceJson = await balanceRes.json();
+        // If PIN is empty → only balance
+        if (!pin) {
+          const balanceRes = await fetch(balanceUrl);
+          if (!balanceRes.ok) throw new Error('Balance error');
+          const balanceJson = await balanceRes.json();
+          balanceSpan.textContent = balanceJson.balance ?? '0.00';
 
-        balanceSpan.textContent = balanceJson.balance ?? '0.00';
-
-        const data = detailsJson.data || [];
-        const tbody = document.getElementById('resultsBody');
-        const table = document.getElementById('resultsTable');
-        tbody.innerHTML = '';
-
-        if (data.length === 0) {
-          tbody.innerHTML = `<tr><td colspan="4">${t.noRecords}</td></tr>`;
-          table.style.display = 'table';
+          // Hide table (no detalization)
+          table.classList.add('hidden');
+          tbody.innerHTML = '';
         } else {
-          data.forEach(item => {
-            const row = document.createElement('tr');
-            row.innerHTML = `
-              <td>${item.phone}</td>
-              <td>${item.call_time}</td>
-              <td>${item.duration}</td>
-              <td>${item.cost}</td>
-            `;
-            tbody.appendChild(row);
-          });
-          table.style.display = 'table';
+          // PIN is present → require dates + fetch detalization + balance
+          if (!fromDate || !toDate) {
+            alert(t.fillDates);
+            return;
+          }
+
+          const detailsUrl =
+            `https://www.lun.kz/api/card/details?number=${cardNumber}&date_from=${fromDate}&date_to=${toDate}&pin=${pin}&page=1`;
+
+          const [detailsRes, balanceRes] = await Promise.all([
+            fetch(detailsUrl),
+            fetch(balanceUrl)
+          ]);
+
+          if (!detailsRes.ok || !balanceRes.ok) throw new Error('API error');
+
+          const detailsJson = await detailsRes.json();
+          const balanceJson = await balanceRes.json();
+
+          balanceSpan.textContent = balanceJson.balance ?? '0.00';
+
+          const data = detailsJson.data || [];
+          tbody.innerHTML = '';
+
+          if (data.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="4">${t.noRecords}</td></tr>`;
+          } else {
+            data.forEach(item => {
+              const row = document.createElement('tr');
+              row.innerHTML = `
+                <td>${item.phone}</td>
+                <td>${item.call_time}</td>
+                <td>${item.duration}</td>
+                <td>${item.cost}</td>
+              `;
+              tbody.appendChild(row);
+            });
+          }
+
+          table.classList.remove('hidden');
         }
       } catch (error) {
         alert(t.errorGeneric);
         console.error(error);
       } finally {
-        btn.textContent = translations[currentLang].button;
+        btn.textContent = originalBtnText;
         btn.disabled = false;
       }
     }
 
+    function setupPinBehavior() {
+      const pinInput = document.getElementById('pin');
+      const dateSection = document.getElementById('dateSection');
+      const table = document.getElementById('resultsTable');
+      const tbody = document.getElementById('resultsBody');
+
+      pinInput.addEventListener('input', () => {
+        const hasPin = pinInput.value.trim().length > 0;
+        if (hasPin) {
+          dateSection.classList.remove('hidden');
+          setDefaultDates();
+        } else {
+          dateSection.classList.add('hidden');
+          // Hide detalization table if PIN cleared
+          table.classList.add('hidden');
+          tbody.innerHTML = '';
+        }
+      });
+    }
+
+    // Init
     setLanguage('kz');
-    setDefaultDates();
+    setupPinBehavior();
   </script>
 </body>
 </html>
+
